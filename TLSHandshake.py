@@ -30,7 +30,6 @@ def ClientHandshake(sock):
     for i in range(AES.keySize):
         key[i] = client_random[i] ^ server_random[i] ^ premaster[i]
 
-    print(key)
     # Verify Session Key
     print("Sending key: ", key)
     sock.sendall(key)
