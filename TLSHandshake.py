@@ -6,65 +6,86 @@ import AES
 # In a real TLS, we would use an asymmetric encryption for
 # the server key
 SERVER_KEY = b'\x0f\xe6\x80\xdfSRgW\xf5\x8cm\x04\x8a\xb2\xe3\x15'
+FINISHED_MESSASGE = "finished"
 
 
 # Client-side TLS handshake
+# Returns None if handshake failed, else returns session_key
 def ClientHandshake(sock):
-    # Send hello msg with client_random
+    # Send client_random
     client_random = os.urandom(AES.keySize)
     print("Sending client_random: ", client_random)
     sock.sendall(client_random)
     
-    # Receive Server reply with server_random
+    # Receive server_random
     server_random = ReceiveData(sock, AES.keySize)
     print("Received server_random: ", server_random)
 
-    # Send premaster
+    # Send premaster (encrypted with SERVER_KEY)
     premaster = os.urandom(AES.keySize)
-    print("Sending premaster: ", premaster)
-    sock.sendall(AES.Encrypt(bytes(premaster), SERVER_KEY))
+    print("Encrypting premaster: ", premaster)
+    premaster_encrypted = AES.Encrypt(bytes(premaster), SERVER_KEY)
+    print("Sending premaster_encrypted: ", premaster_encrypted)
+    sock.sendall(premaster_encrypted)
 
-    # Create Session Key
-    # Super simple key
-    key = bytearray(AES.keySize)
+    # Create session_key
+    session_key = bytearray(AES.keySize)
     for i in range(AES.keySize):
-        key[i] = client_random[i] ^ server_random[i] ^ premaster[i]
+        session_key[i] = client_random[i] ^ server_random[i] ^ premaster[i]
 
-    # Verify Session Key
-    print("Sending key: ", key)
-    sock.sendall(key)
-    server_key = ReceiveData(sock, AES.keySize)
-    print("Received key: ", server_key)
-    if key == server_key:
-        return key
+    # Verify session_key with server
+    client_verification = AES.Encrypt(FINISHED_MESSAGE.encode(), session_key)
+    print("Sending client_finished: ", client_verification)
+    sock.sendall(client_verification)
+    
+    server_verification = ReceiveData(sock, len(client_verification))
+    print("Received server_finished: ", server_verification)
+    
+    server_finished = AES.Decrypt(server_verification, session_key).decode('utf8')
+    print("Decrypted server_finished: ", server_finished)
+    
+    # Return result
+    if server_finished == FINISHED_MESSAGE:
+        return session_key
     else:
         return None
 
+# Server-side TLS handshake
+# Returns None if handshake failed, else returns session_key
 def ServerHandshake(sock):
-    # Receive client_random from client
+    # Receive client_random
     client_random = ReceiveData(sock, AES.keySize)
     print("Received client_random: ", client_random)
 
     # Send server_random
     server_random = os.urandom(AES.keySize)
     print("Sending server_random: ", server_random)
-    sock.sendall(server_random)                                                                                                                               
+    sock.sendall(server_random)      
+    
+    # Receive and decrypt premaster
     premaster_encoded = ReceiveData(sock, AES.keySize)
     premaster = AES.Decrypt(premaster_encoded, SERVER_KEY)
     print("Received premaster: ", premaster)
 
-    key = bytearray(AES.keySize)
+    # Create session_key
+    session_key = bytearray(AES.keySize)
     for i in range(AES.keySize):
-        key[i] = client_random[i] ^ server_random[i] ^ premaster[i]
+        session_key[i] = client_random[i] ^ server_random[i] ^ premaster[i]
 
-    # Verify Session Key                                                                                                                             
-    client_key = ReceiveData(sock, AES.keySize)
-    print("Received key: ", client_key)
-    print("Sending key: ", key)
-    sock.sendall(key)
-
-    if key == client_key:
-        return key
+    # Verify session_key with client                                                                                                                         
+    server_verification = AES.Encrypt(FINISHED_MESSAGE.encode(), session_key)
+    
+    client_verification = ReceiveData(sock, len(server_verification))
+    print("Received client_finished: ", client_verification)
+    
+    client_finished = AES.Decrypt(client_verification, session_key).decode('utf8')
+    print("Decrypted client_finished: ", client_finished)
+    
+    print("Sending server_finished: ", server_verification)
+    sock.sendall(server_verification)
+    
+    if client_finished == FINISHED_MESSAGE:
+        return session_key
     else:
         return None
 
