@@ -6,7 +6,7 @@ import AES
 # In a real TLS, we would use an asymmetric encryption for
 # the server key
 SERVER_KEY = b'\x0f\xe6\x80\xdfSRgW\xf5\x8cm\x04\x8a\xb2\xe3\x15'
-FINISHED_MESSASGE = "finished"
+FINISHED_MESSAGE = "finished"
 
 
 # Client-side TLS handshake
@@ -41,11 +41,11 @@ def ClientHandshake(sock):
     server_verification = ReceiveData(sock, len(client_verification))
     print("Received server_finished: ", server_verification)
     
-    server_finished = AES.Decrypt(server_verification, session_key).decode('utf8')
+    server_finished = AES.Decrypt(server_verification, session_key)
     print("Decrypted server_finished: ", server_finished)
     
     # Return result
-    if server_finished == FINISHED_MESSAGE:
+    if server_finished.decode('utf8') == FINISHED_MESSAGE:
         return session_key
     else:
         return None
@@ -78,13 +78,13 @@ def ServerHandshake(sock):
     client_verification = ReceiveData(sock, len(server_verification))
     print("Received client_finished: ", client_verification)
     
-    client_finished = AES.Decrypt(client_verification, session_key).decode('utf8')
+    client_finished = AES.Decrypt(client_verification, session_key)
     print("Decrypted client_finished: ", client_finished)
     
     print("Sending server_finished: ", server_verification)
     sock.sendall(server_verification)
     
-    if client_finished == FINISHED_MESSAGE:
+    if client_finished.decode('utf8') == FINISHED_MESSAGE:
         return session_key
     else:
         return None
