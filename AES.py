@@ -1,6 +1,6 @@
 # Daniel Sullivan
 # CSE 461 Project 3
-# AES encryption for TCP
+# 128-bit AES encryption for TCP
 
 keySize = 16
 blockSize = 16

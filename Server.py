@@ -17,18 +17,24 @@ while True:
     try:
         
         key = TLSHandshake.ServerHandshake(connection)
-        if key != None:
+        if key == None:
+            print('Client and Server key check failed')
+        else:
             print(connection)
             print(client_address)
-            print ('connection from ' + str(client_address))
+            print ('connection from ', str(client_address))
             while True:
                 data = connection.recv(1024)
-                print('received %s' %AES.Decrypt(data, key))
                 if data:
+                    print('received encrypted data: ', ''.join(format(x, '02x') for x in data))
+                    decrypted_data = AES.Decrypt(data, key)
+                    print('decrypted data as: ', decrypted_data.decode('utf-8'))
+                    encrypted_data = AES.Encrypt(decrypted_data, key)
+                    print('encrypted data as: ', ''.join(format(x, '02x') for x in encrypted_data))
                     print('sending data back to the client')
-                    connection.sendall(data)
+                    connection.sendall(encrypted_data)
                 else:
-                    print('no more data from ' + str(client_address))
+                    print('no more data from ', str(client_address))
                     break
             
     finally:
